@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 # From Local Files
 from analysis import compute_channel_mean_differences
-from data_io import read_keyence_csv
+from data_io import read_keyence, read_probes_csv
 from plotting import plot_channel_mean_differences, plot_full, plotting_newton_cooling_fit
 
 # Global plot settings
@@ -26,6 +26,7 @@ parser = argparse.ArgumentParser(
 
 # Parser arguments
 parser.add_argument('--database', type=str, default='./Data', help='Input Keyence CSV file database')
+parser.add_argument('--probes', type=str, default='./probes.csv', help='Input probes CSV file')
 parser.add_argument('--dates', help="Dates for the data") # TODO: Not yet implemented
 
 parser.add_argument('--reference_probe', type=int, default=32, help='Reference probe number for temperature analysis')
@@ -36,50 +37,20 @@ args = parser.parse_args()
 
 # Validate arguments
 if args.sigma_multiplier <= 0: parser.error('--sigma-multiplier must be greater than zero')
-
 if args.verbose: print("Verbose output enabled")
 
 # Refers to the main function in data_io.py to read the Keyence CSV file
-time_array, dates_x, column_names = read_keyence_csv(args)
+data, time_array, dates_x, column_names = read_keyence(args)
 
-# Removes invalid characters from the filename to create a safe inputt filename
-safe_filename = Path(args.filename).stem
-safe_filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", safe_filename).rstrip(" .")
-if not safe_filename:
-    raise ValueError("Input filename does not provide a valid output filename")
-elif args.verbose:
-    print(f"Safe input filename: {safe_filename}")
+start_date = dates_x[0] if len(dates_x) > 0 else None
+end_date = dates_x[-1] if len(dates_x) > 0 else None
+safe_filename = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}" if start_date and end_date else "unknown_dates"
 
-# Plots temperature_mean vs temperature
-if args.t_mean_plot:
-    signal_columns = [
-        column_name
-        for column_name in column_names
-        if pd.api.types.is_numeric_dtype(data[column_name])
-    ]
-    if not signal_columns:
-        raise ValueError("No numeric channels found for melt-phase plotting")
-    if signal_columns is None:
-        raise ValueError("No temperature column found in the data")
-    
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    for column_name in tqdm(signal_columns, desc=f"Plotting rolling mean for temperature channels"):
-
-        temperature_data = data[column_name].astype(float)
-        temperature_data = temperature_data.rolling(window=10,min_periods=1,center=True).mean()
-
-        rolling_mean_temp = temperature_data.rolling(window=50, min_periods=1, center=True).mean()
-
-        ax.plot(temperature_data, rolling_mean_temp, label=f'Rolling Mean (window={5000})', alpha=0.5)
-
-    ax.set_title('Temperature vs Rolling Mean')
-    ax.set_xlabel('Temperature (°C)')
-    ax.set_ylabel('Rolling Mean Temperature (°C)')
-    ax.grid(True)
-    plt.savefig(f"temperature_mean_plot_{safe_filename}.png", dpi=500)
-    if args.verbose:
-        print(f"Saved temperature mean plot as 'temperature_mean_plot_{safe_filename}.png'")
+probes_df = read_probes_csv(args.probes)
+if args.verbose:
+    for probe in probes_df.itertuples():
+        if column_names[probe.Index] == f"(NR-{probe.nr_num})TH-CH0{probe.ch_num}":
+            print(f"Loaded probe {column_names[probe.Index]} X{probe.extension_num} : {probe.arm_code} - {probe.loc_code}")
 
 # Plotting the data for plot_full if requested
 if(args.plot_full):
@@ -88,7 +59,7 @@ if(args.plot_full):
     else:
         fig, fig2 = plot_full(args, data=data, column_names=column_names, dates_x=dates_x, title=args.title)
     if fig is not None:
-        fig.savefig(f"temperature_figure_{safe_filename}.png", dpi=500)
+        fig.savefig(f"temperature_figure_{}.png", dpi=500)
         # Succesfully saved fig1 at f"temperature_figure_{safe_filename}.png"
         if args.verbose:
             print(f"Saved full data plot as 'temperature_figure_{safe_filename}.png'")

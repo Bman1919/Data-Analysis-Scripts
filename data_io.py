@@ -6,6 +6,20 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+
+# Reading probes.csv file
+def read_probes_csv(filename):
+    if not Path(filename).is_file():
+        raise ValueError(f"Probes CSV file '{filename}' does not exist")
+    if not filename.lower().endswith(".csv"):
+        raise ValueError(f"Probes CSV file '{filename}' is not a CSV file")
+
+    probes_df = pd.read_csv(filename)
+
+    probes_df.columns = probes_df.columns.str.strip()  # Strip whitespace from column names
+    return probes_df
+
+# Keyence CSV file reading functions
 def read_keyence(args):
     if not args.database:
         raise ValueError("Database path is not provided")
@@ -19,13 +33,17 @@ def read_keyence_dir(args):
     if not data_files:
         raise ValueError("No CSV files found in the database directory")
 
-    all_data = []
+    data_out, time_array_out, dates_x_out, signal_columns_out = pd.DataFrame(), pd.Series([], dtype=float), np.array([],dtype='datetime64[us]'), pd.Series([], dtype=str)
     for file in tqdm(data_files, desc="Reading data files"):
-        time_array, dates_x, signal_columns = read_keyence_csv(file)
+        data, time_array, dates_x, _ = read_keyence_csv(file)
+        data_out = pd.concat([data_out, data], ignore_index=True)
+        time_array_out = pd.concat([time_array_out, time_array], ignore_index=True)
+        dates_x_out = np.append(dates_x_out, dates_x)
         # TODO: Consider putting termination around the dates argument
-        all_data.append((time_array, dates_x, signal_columns))
 
-    return all_data
+    signal_columns_out = data_out.columns[2:]  # Assuming the first two columns are Date and Time
+
+    return data_out, np.array(time_array_out), np.array(dates_x_out), signal_columns_out
 
 def read_keyence_csv(filename):
     skip_rows = None
@@ -68,4 +86,4 @@ def read_keyence_csv(filename):
         data[column_name] = pd.to_numeric(data[column_name], errors="coerce")
         data[column_name] = data[column_name].replace({val: None for val in bad_values})
     
-    return time_array, dates_x, signal_columns
+    return data, time_array, dates_x, signal_columns
