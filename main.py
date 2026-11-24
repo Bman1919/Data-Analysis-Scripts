@@ -25,45 +25,22 @@ parser = argparse.ArgumentParser(
 )
 
 # Parser arguments
-parser.add_argument('filename', help='Input Keyence CSV file')
-parser.add_argument('--plot_full', action='store_true', help='Plot all numeric channels over time and their histograms; this is the default action')
-parser.add_argument(
-    '--plot_phase_hist', '--plot_melt_hist',
-    dest='plot_phase_hist',
-    action='store_true',
-    help='Plot the phase where channels are near the configured reference temperature',
-)
-parser.add_argument('--no_mean', action='store_true', help='Plot raw channel data without rolling mean and sigma band')
-parser.add_argument('--calc_diff', action='store_true', help='Plot each numeric channel minus the row-wise mean of all numeric channels')
-parser.add_argument('--hist_window', type=int, default=-1, help='Create a difference animation using this many samples per frame; disable when non-positive')
-parser.add_argument('--rolling-window', type=int, default=3000, help='Number of samples in each rolling mean and standard-deviation window')
-parser.add_argument('--sigma-multiplier', type=float, default=3.0, help='Distance from the rolling mean to each edge of the shaded sigma band')
-parser.add_argument('--phase-center', type=float, default=0.0, help='Reference temperature used by --plot_phase_hist')
-parser.add_argument('--phase-range', type=float, default=1.0, help='Allowed distance from --phase-center for --plot_phase_hist')
+parser.add_argument('--database', type=str, default='./Data', help='Input Keyence CSV file database')
+parser.add_argument('--dates', help="Dates for the data") # TODO: Not yet implemented
+
+parser.add_argument('--reference_probe', type=int, default=32, help='Reference probe number for temperature analysis')
+parser.add_argument('--sigma-multiplier', type=float, default=3.0, help='Multiplier for standard deviation thresholding')
 parser.add_argument('--title', type=str, default='Temperature Measurement', help='Title used for the full-data plot')
-parser.add_argument('--newton-cooling-fit', action='store_true', help='Fit a Newton cooling model to the data and plot the result')
 parser.add_argument('--verbose', action='store_true', help='Enable verbose output for debugging and information purposes')
-parser.add_argument('--t_mean_plot',action='store_true', help='Plot the rolling mean of the temperature data')
 args = parser.parse_args()
 
 # Validate arguments
-if args.rolling_window < 1:
-    parser.error('--rolling-window must be a positive integer')
-if args.sigma_multiplier <= 0:
-    parser.error('--sigma-multiplier must be greater than zero')
-if args.verbose:
-    print("Verbose output enabled")
-if args.newton_cooling_fit and not (args.plot_full or args.plot_phase_hist or args.calc_diff):
-    parser.error('--newton-cooling-fit requires at least one of --plot_full, --plot_phase_hist, or --calc_diff') # TODO: VALIDATE that this works
+if args.sigma_multiplier <= 0: parser.error('--sigma-multiplier must be greater than zero')
 
-# Default to plotting full data if no specific action is requested
-if not (args.plot_full or args.plot_phase_hist or args.calc_diff):
-    args.plot_full = True
+if args.verbose: print("Verbose output enabled")
 
 # Refers to the main function in data_io.py to read the Keyence CSV file
-data, time_array, dates_x, column_names = read_keyence_csv(args.filename)
-if args.verbose:
-    print(f"Data loaded successfully: {data.shape}")
+time_array, dates_x, column_names = read_keyence_csv(args)
 
 # Removes invalid characters from the filename to create a safe inputt filename
 safe_filename = Path(args.filename).stem

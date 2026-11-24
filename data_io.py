@@ -1,9 +1,31 @@
 import csv
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
+def read_keyence(args):
+    if not args.database:
+        raise ValueError("Database path is not provided")
+    if not Path(args.database).is_dir():
+        return read_keyence_csv(args.database)
+    return read_keyence_dir(args)
+
+
+def read_keyence_dir(args):
+    data_files = list(Path(args.database).glob("*.csv"))
+    if not data_files:
+        raise ValueError("No CSV files found in the database directory")
+
+    all_data = []
+    for file in tqdm(data_files, desc="Reading data files"):
+        time_array, dates_x, signal_columns = read_keyence_csv(file)
+        # TODO: Consider putting termination around the dates argument
+        all_data.append((time_array, dates_x, signal_columns))
+
+    return all_data
 
 def read_keyence_csv(filename):
     skip_rows = None

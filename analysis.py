@@ -1,11 +1,6 @@
-import math
 
-import numpy as np
-import pandas as pd
 from scipy.optimize import curve_fit
-
-def rolling_mean(data, window_size):
-    return pd.Series(data).rolling(window=window_size, min_periods=1, center=True).mean().to_numpy()
+from analysis_helpers import *
 
 def fit_newton_cooling(time_array,raw_temperature_array):
     temperature_values = raw_temperature_array.astype(float)
@@ -57,8 +52,3 @@ def compute_channel_mean_differences(data_frame, channel_names):
     diff_frame.columns = [f"{column_name} - Mean" for column_name in numeric]
     return diff_frame, numeric
 
-
-def histogram_layout(num_channels):
-    n_cols = min(4, max(1, num_channels))
-    n_rows = max(1, math.ceil(num_channels / n_cols))
-    return n_rows, n_cols
