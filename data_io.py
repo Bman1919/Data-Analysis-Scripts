@@ -81,9 +81,10 @@ def read_keyence_csv(filename):
     signal_columns = data.columns[2:]
 
     bad_values = [1372.0,-32768.0]
+    min_possible = -10
+    max_possible = 20
 
     for column_name in signal_columns:
         data[column_name] = pd.to_numeric(data[column_name], errors="coerce")
-        data[column_name] = data[column_name].replace({val: None for val in bad_values})
-    
+        data[column_name] = data[column_name].apply(lambda x: np.nan if x in bad_values or x < min_possible or x > max_possible else x)
     return data, time_array, dates_x, signal_columns

@@ -7,7 +7,18 @@ import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 
+from analysis_helpers import get_probe_fullname_by_index, get_probe_index_by_name, get_probe_name_by_index
 from analysis import compute_channel_mean_differences, histogram_layout, numeric_columns, fit_newton_cooling
+
+def plot_outside_comparison(data_frame, probes_df, dates_x, channel_names, outside_probe_name="AO", outside_probe_loc="1", title="Temperature Difference from Outside Probe"):
+    outside_probe_index = get_probe_index_by_name(outside_probe_name, outside_probe_loc, probes_df)
+    if outside_probe_index is None:
+        print(f"Warning: Outside probe '{outside_probe_name}{outside_probe_loc}' not found in the data. Skipping outside comparison plot.")
+        return None, None
+    column_names = [name for name in channel_names if name != get_probe_fullname_by_index(outside_probe_index, probes_df)]
+    outside_probe_column = data_frame.columns[outside_probe_index]
+    diff_frame = data_frame[column_names].sub(data_frame[outside_probe_column], axis=0)
+    return plot_full({}, dates_x, data=diff_frame, column_names=column_names, no_hist=True, title=title)
 
 def plot_full(args, dates_x, data=None, dataMatrix=None, column_names=None, no_hist=True, title="Temperature Measurement"):
     if data is not None:
@@ -89,9 +100,14 @@ def plotting_newton_cooling_fit(args, dates_x, data=None, dataMatrix=None, colum
     )
 
 def std_plot_full(args, dates_x, column_names, data, no_hist=False, title="Temperature Measurement"):
-    signal_columns = numeric_columns(data, column_names)
-    if not signal_columns:
-        return None, None
+    # signal_columns = numeric_columns(data, column_names)
+    # if not signal_columns:
+    #     return None, None
+
+    # print(f"{len(column_names)} columns found for plotting: {', '.join(column_names)}")
+    # signal_columns = [name for name in column_names if name in data.columns and pd.api.types.is_numeric_dtype(data[name])]
+    # print(f"{len(signal_columns)} numeric columns found for plotting: {', '.join(signal_columns)}")
+    signal_columns = column_names
 
     working_data = data.copy()
     rolling_window = getattr(args, "rolling_window", 3000)
@@ -99,15 +115,20 @@ def std_plot_full(args, dates_x, column_names, data, no_hist=False, title="Tempe
     newton_cooling_fit = getattr(args, "newton_cooling_fit", False)
     verbose = getattr(args, "verbose", False)
 
+    min_plotted = -10
+    max_plotted = 20
+
     if 1 or not args.no_mean:
-        for column_name in tqdm(signal_columns,desc=f"Calculating the rolling mean and standard deviation {title}"):
+        for column_name in tqdm(signal_columns,desc=f"Rolling calculations"):
             working_data[f"Rolling Mean ({column_name})"] = working_data[column_name].rolling(
-                window=rolling_window, center=True
+                window=rolling_window, center=True, min_periods=1
             ).mean()
             ch_residual = working_data[column_name] - working_data[f"Rolling Mean ({column_name})"]
             working_data[f"Rolling STD ({column_name})"] = ch_residual.rolling(
-                window=rolling_window, center=True
+                window=rolling_window, center=True, min_periods=1
             ).std()
+            min_plotted = min(min_plotted, working_data[f"Rolling Mean ({column_name})"].min())
+            max_plotted = max(max_plotted, working_data[f"Rolling Mean ({column_name})"].max())
 
     if verbose:
         print(f"Calculated rolling means and standard deviations for {title}")
@@ -124,8 +145,9 @@ def std_plot_full(args, dates_x, column_names, data, no_hist=False, title="Tempe
     ax.set_xlabel("Time")
     ax.grid(True)
     ax.set_ylabel("Temperature (°C)")
+    ax.set_ylim(max(-10, min_plotted), min(20, max_plotted))
 
-    for column_name in signal_columns:
+    for column_name in tqdm(signal_columns, desc="Plotting temperature data"):
         if newton_cooling_fit and f"Env Temp Fit ({column_name})" in working_data.columns:
             ax.plot(
                 dates_x,
