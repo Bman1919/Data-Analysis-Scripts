@@ -99,7 +99,7 @@ def std_plot_full(args, dates_x, column_names, data, no_hist=False, title="Tempe
     newton_cooling_fit = getattr(args, "newton_cooling_fit", False)
     verbose = getattr(args, "verbose", False)
 
-    if not args.no_mean:
+    if 1 or not args.no_mean:
         for column_name in tqdm(signal_columns,desc=f"Calculating the rolling mean and standard deviation {title}"):
             working_data[f"Rolling Mean ({column_name})"] = working_data[column_name].rolling(
                 window=rolling_window, center=True
@@ -117,7 +117,7 @@ def std_plot_full(args, dates_x, column_names, data, no_hist=False, title="Tempe
 
     ax.set_title(
         f"{title} (Mean +/- {sigma_multiplier:g} Sigma Noise)"
-        if not args.no_mean
+        if 1 or not args.no_mean
         else title
     )
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%dth %H:%M:%S"))
@@ -134,7 +134,7 @@ def std_plot_full(args, dates_x, column_names, data, no_hist=False, title="Tempe
                 linewidth=1.0,
                 label=f"Env Temp Fit ({column_name})",
             )
-        elif not args.no_mean:
+        elif 1 or not args.no_mean:
             rolling_mean = working_data[f"Rolling Mean ({column_name})"]
             rolling_std = working_data[f"Rolling STD ({column_name})"]
             lower_bound = rolling_mean - sigma_multiplier * rolling_std

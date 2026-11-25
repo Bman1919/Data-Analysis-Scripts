@@ -33,6 +33,10 @@ parser.add_argument('--reference_probe', type=int, default=32, help='Reference p
 parser.add_argument('--sigma-multiplier', type=float, default=3.0, help='Multiplier for standard deviation thresholding')
 parser.add_argument('--title', type=str, default='Temperature Measurement', help='Title used for the full-data plot')
 parser.add_argument('--verbose', action='store_true', help='Enable verbose output for debugging and information purposes')
+
+#Plot options
+parser.add_argument('--plot_full', action='store_true', help='Plot the full data')
+parser.add_argument('--newton_cooling_fit', action='store_true', help='Fit the Newton cooling model to the data') # TODO: NOT YET IMPLEMENTED
 args = parser.parse_args()
 
 # Validate arguments
@@ -44,13 +48,13 @@ data, time_array, dates_x, column_names = read_keyence(args)
 
 start_date = dates_x[0] if len(dates_x) > 0 else None
 end_date = dates_x[-1] if len(dates_x) > 0 else None
-safe_filename = f"{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}" if start_date and end_date else "unknown_dates"
+safe_filename = f"{np.datetime_as_string(start_date,unit='D').replace('-', '')}_{np.datetime_as_string(end_date,unit='D').replace('-', '')}" if start_date and end_date else "unknown_dates"
 
 probes_df = read_probes_csv(args.probes)
 if args.verbose:
     for probe in probes_df.itertuples():
         if column_names[probe.Index] == f"(NR-{probe.nr_num})TH-CH0{probe.ch_num}":
-            print(f"Loaded probe {column_names[probe.Index]} X{probe.extension_num} : {probe.arm_code} - {probe.loc_code}")
+            print(f"{column_names[probe.Index]} X{probe.extension_num:02d} : {probe.arm_code}-{probe.loc_code}")
 
 # Plotting the data for plot_full if requested
 if(args.plot_full):
@@ -59,7 +63,7 @@ if(args.plot_full):
     else:
         fig, fig2 = plot_full(args, data=data, column_names=column_names, dates_x=dates_x, title=args.title)
     if fig is not None:
-        fig.savefig(f"temperature_figure_{}.png", dpi=500)
+        fig.savefig(f"temperature_figure_{safe_filename}.png", dpi=500)
         # Succesfully saved fig1 at f"temperature_figure_{safe_filename}.png"
         if args.verbose:
             print(f"Saved full data plot as 'temperature_figure_{safe_filename}.png'")
@@ -82,6 +86,8 @@ if(args.plot_phase_hist):
     phase_range = args.phase_range
     if phase_range < 0:
         parser.error('--phase-range must be non-negative')
+    if phase_center is None:
+        parser.error('--phase-center is required')
     melt_windows = {}
 
     for column_name in signal_columns:
